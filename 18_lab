@@ -1,0 +1,204 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from keras.models import Sequential
+from keras.layers import Dense
+from livelossplot import PlotLossesKeras
+from keras.optimizers import SGD, Adam
+from keras import initializers
+from keras.callbacks import EarlyStopping, ModelCheckpoint
+import os
+import tensorflow as tf
+
+tf.config.threading.set_intra_op_parallelism_threads(1)
+tf.config.threading.set_inter_op_parallelism_threads(1)
+
+def plot_decision_boundary_keras(model, X, Y, h=0.01, strict=False):
+    x_min, x_max = X[:, 0].min(), X[:, 0].max()
+    y_min, y_max = X[:, 1].min(), X[:, 1].max()
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, h),
+                         np.arange(y_min, y_max, h))
+    Z = model.predict(np.c_[xx.ravel(), yy.ravel()])[:, 0]
+    Z = Z.reshape(xx.shape)
+    Z_strict = Z >= 0.5
+    plt.figure(figsize=(15, 15))
+    if strict:
+        plt.contourf(xx, yy, Z_strict, cmap=plt.cm.Blues, alpha=0.8)
+    else:
+        plt.contourf(xx, yy, Z, cmap=plt.cm.Blues, alpha=0.8)
+    plt.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.autumn)
+    plt.title('Граница принятия решения')
+
+def generate_dataset():
+    ps = []
+    for a in np.linspace(0, 2*np.pi, 1000):
+        if (0.75*np.pi - 0.2) < a < (0.75*np.pi + 0.2):
+            continue
+        if (7.0*np.pi/4.0 - 0.2) < a < (7.0*np.pi/4.0 + 0.2):
+            continue
+        if (5.0*np.pi/4.0 - 0.2) < a < (5.0*np.pi/4.0 + 0.2):
+            continue
+        r = 1 + (np.random.rand()-0.5)*0.5
+        x = np.cos(a)*r
+        y = np.sin(a)*r
+        ps.append([x,y])
+    ps = np.array(ps)
+    xs = np.linspace(-1.5, 1.5, 200)
+    xs = xs + (np.random.rand(len(xs)) - 0.5)/10.0
+    ys = -xs + (np.random.rand(len(xs)) - 0.5)/3.0
+    xs2 = np.linspace(-1.5, -0.1, 200)
+    xs2 = xs2 + (np.random.rand(len(xs2)) - 0.5)/10.0
+    ys2 = xs2 + (np.random.rand(len(xs2)) - 0.5)/3.0
+    ps2 = np.vstack([np.array([xs, ys]).T, 
+                     np.array([xs2, ys2]).T])
+    X = np.vstack([ps, ps2])
+    y = np.array([0]*ps.shape[0] + [1]*ps2.shape[0])
+    return X, y
+
+X, y = generate_dataset()
+
+# Задание 1
+model = Sequential([
+    Dense(16, activation='relu', input_shape=(2,)),
+    Dense(16, activation='relu'),
+    Dense(8, activation='relu'),
+    Dense(1, activation='sigmoid')
+])
+model.summary()
+
+batch_size = 32
+epochs = 100
+
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+model.fit(X, y, batch_size=batch_size, epochs=epochs, verbose=0,
+          validation_split=0.2,
+          callbacks=[PlotLossesKeras()])
+plot_decision_boundary_keras(model, X, y, strict=True)
+plt.show()
+
+# Задание 2
+def create_model():
+    return Sequential([
+        Dense(16, activation='relu', input_shape=(2,)),
+        Dense(16, activation='relu'),
+        Dense(8, activation='relu'),
+        Dense(1, activation='sigmoid')
+    ])
+
+learning_rates = [0.001, 0.01, 0.05, 0.1, 0.5]
+histories = []
+
+for lr in learning_rates:
+    model = create_model()
+    optimizer = SGD(learning_rate=lr, momentum=0.9)
+    model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+    history = model.fit(X, y, batch_size=32, epochs=100, verbose=0,
+                        validation_split=0.2)
+    histories.append(history)
+
+plt.figure(figsize=(12, 6))
+accuracies = [h.history['val_accuracy'] for h in histories]
+for acc, lr in zip(accuracies, learning_rates):
+    plt.plot(acc, label=f'LR={lr}')
+plt.xlabel('Epochs')
+plt.ylabel('Validation Accuracy')
+plt.legend()
+plt.title('Сравнение learning rates для SGD')
+plt.grid(True)
+plt.show()
+
+best_model = create_model()
+best_model.compile(optimizer=Adam(learning_rate=0.001), 
+                   loss='binary_crossentropy', 
+                   metrics=['accuracy'])
+best_model.fit(X, y, batch_size=32, epochs=100, verbose=0)
+plot_decision_boundary_keras(best_model, X, y, strict=True)
+plt.show()
+
+# Задание 3
+def create_model_with_init(k_init):
+    return Sequential([
+        Dense(16, activation='relu', kernel_initializer=k_init, input_shape=(2,)),
+        Dense(16, activation='relu', kernel_initializer=k_init),
+        Dense(8, activation='relu', kernel_initializer=k_init),
+        Dense(1, activation='sigmoid', kernel_initializer=k_init)
+    ])
+
+k_init = ['random_normal', 'glorot_uniform', 'he_uniform', 'lecun_uniform', 'orthogonal']
+histories = []
+
+for init in k_init:
+    model = create_model_with_init(init)
+    model.compile(optimizer=Adam(learning_rate=0.001), 
+                  loss='binary_crossentropy', 
+                  metrics=['accuracy'])
+    history = model.fit(X, y, batch_size=32, epochs=100, verbose=0,
+                        validation_split=0.2)
+    histories.append(history)
+
+plt.figure(figsize=(12, 6))
+accuracies = [h.history['val_accuracy'] for h in histories]
+for acc, init in zip(accuracies, k_init):
+    plt.plot(acc, label=init)
+plt.xlabel('Epochs')
+plt.ylabel('Validation Accuracy')
+plt.legend()
+plt.title('Сравнение инициализаторов весов')
+plt.grid(True)
+plt.show()
+
+best_model_init = create_model_with_init('he_uniform')
+best_model_init.compile(optimizer=Adam(learning_rate=0.001), 
+                        loss='binary_crossentropy', 
+                        metrics=['accuracy'])
+best_model_init.fit(X, y, batch_size=32, epochs=100, verbose=0)
+plot_decision_boundary_keras(best_model_init, X, y, strict=True)
+plt.show()
+
+# Задание 4
+os.makedirs('models', exist_ok=True)
+
+def create_final_model():
+    return Sequential([
+        Dense(16, activation='relu', kernel_initializer='he_uniform', input_shape=(2,)),
+        Dense(16, activation='relu', kernel_initializer='he_uniform'),
+        Dense(8, activation='relu', kernel_initializer='he_uniform'),
+        Dense(1, activation='sigmoid', kernel_initializer='glorot_uniform')
+    ])
+
+model = create_final_model()
+model.compile(optimizer=Adam(learning_rate=0.001), 
+              loss='binary_crossentropy', 
+              metrics=['accuracy'])
+
+early_stopping = EarlyStopping(
+    monitor='val_loss',
+    patience=20,
+    verbose=1,
+    mode='min',
+    restore_best_weights=True
+)
+
+checkpoint = ModelCheckpoint(
+    'models/best_model.h5',
+    monitor='val_accuracy',
+    save_best_only=True,
+    mode='max',
+    verbose=1
+)
+
+history = model.fit(
+    X, y,
+    batch_size=32,
+    epochs=200,
+    validation_split=0.2,
+    verbose=1,
+    callbacks=[PlotLossesKeras(), early_stopping, checkpoint]
+)
+
+plot_decision_boundary_keras(model, X, y, strict=True)
+plt.show()
+
+from keras.models import load_model
+best_model = load_model('models/best_model.h5')
+plot_decision_boundary_keras(best_model, X, y, strict=True)
+plt.show()
