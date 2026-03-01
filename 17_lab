@@ -1,0 +1,242 @@
+import random
+
+class Neuron:
+    """Искусственный нейрон"""
+
+    def __init__(self, weights, bias):
+        self.weights = weights
+        self.bias = bias
+
+    def activate(self, inputs):
+        total_input = sum(w * i for w, i in zip(self.weights, inputs)) + self.bias
+        return 1 if total_input >= 0 else 0
+
+#  №1 AND 
+print("=" * 50)
+print("ЗАДАНИЕ 1: Логическая функция AND")
+print("=" * 50)
+
+weights_and = [1, 1]
+bias_and = -1.5
+
+neuron_and = Neuron(weights_and, bias_and)
+
+inputs = [
+    [0, 0],
+    [0, 1],
+    [1, 0],
+    [1, 1]
+]
+
+print("x1 x2 AND")
+for x in inputs:
+    output = neuron_and.activate(x)
+    print(f"{x[0]:2} {x[1]:2}  {output:2}")
+print()
+
+# № 2: OR 
+print("=" * 50)
+print("ЗАДАНИЕ 2: Логическая функция OR")
+print("=" * 50)
+
+weights_or = [1, 1]
+bias_or = -0.5
+
+neuron_or = Neuron(weights_or, bias_or)
+
+print("x1 x2 OR")
+for x in inputs:
+    output = neuron_or.activate(x)
+    print(f"{x[0]:2} {x[1]:2}  {output:2}")
+print()
+
+# №3: NOT 
+print("=" * 50)
+print("ЗАДАНИЕ 3: Логическая функция NOT")
+print("=" * 50)
+
+weights_not = [-1]
+bias_not = 0.5
+
+neuron_not = Neuron(weights_not, bias_not)
+
+inputs_not = [
+    [0],
+    [1]
+]
+
+print("x NOT")
+for x in inputs_not:
+    output = neuron_not.activate(x)
+    print(f"{x[0]:2}  {output:2}")
+print()
+
+# №4: XOR 
+print("=" * 50)
+print("ЗАДАНИЕ 4: Логическая функция XOR")
+print("=" * 50)
+
+class XORNetwork:
+    def __init__(self):
+        self.not1 = Neuron([-1], 0.5)
+        self.not2 = Neuron([-1], 0.5)
+        self.and1 = Neuron([1, 1], -1.5)
+        self.and2 = Neuron([1, 1], -1.5)
+        self.or_neuron = Neuron([1, 1], -0.5)
+    
+    def activate(self, inputs):
+        x1, x2 = inputs
+        not_x1 = self.not1.activate([x1])
+        not_x2 = self.not2.activate([x2])
+        a1 = self.and1.activate([x1, not_x2])
+        a2 = self.and2.activate([not_x1, x2])
+        return self.or_neuron.activate([a1, a2])
+
+xor_network = XORNetwork()
+inputs_xor = [
+    [0, 0],
+    [0, 1],
+    [1, 0],
+    [1, 1]
+]
+
+print("x1 x2 XOR")
+for x in inputs_xor:
+    output = xor_network.activate(x)
+    print(f"{x[0]:2} {x[1]:2}  {output:2}")
+print()
+
+# ФУНКЦИИ ДЛЯ ОБУЧЕНИЯ 
+print("=" * 50)
+print("ОБУЧЕНИЕ НЕЙРОНОВ")
+print("=" * 50)
+
+def init_weights(num_weights=2):
+    return [random.random() for _ in range(num_weights)]
+
+def predict(x, w):
+    if len(x) == 1:
+        summator = x[0] * w[0]
+    else:
+        summator = x[0] * w[0] + x[1] * w[1]
+    return 1 if summator >= 1 else 0
+
+def train(x_train, y_train, w, speed):
+    for i in range(len(x_train)):
+        error = y_train[i] - predict(x_train[i], w)
+        if error != 0:
+            for j in range(len(w)):
+                w[j] = w[j] + error * x_train[i][j] * speed
+
+def epoch(count, func_train, x_train, y_train, w, speed):
+    for i in range(count):
+        func_train(x_train, y_train, w, speed)
+
+# № 5: Обучение AND
+print("\n" + "=" * 50)
+print("ЗАДАНИЕ 5: Обучение нейрона для AND")
+print("=" * 50)
+
+speed = 0.3
+w_and = init_weights()
+print(f"Стартовые веса: {w_and}")
+
+x_train = [[1, 1], [1, 0], [0, 1], [0, 0]]
+y_train_and = [1, 0, 0, 0]
+
+epoch(10, train, x_train, y_train_and, w_and, speed)
+print(f"Конечные веса: {w_and}")
+
+print("x1 x2 AND")
+for x in x_train:
+    print(f"{x[0]:3} {x[1]:3} {predict(x, w_and):3}")
+print()
+
+# № 6: Обучение OR 
+print("=" * 50)
+print("ЗАДАНИЕ 6: Обучение нейрона для OR")
+print("=" * 50)
+
+w_or = init_weights()
+print(f"Стартовые веса: {w_or}")
+
+y_train_or = [1, 1, 1, 0]
+
+epoch(10, train, x_train, y_train_or, w_or, speed)
+print(f"Конечные веса: {w_or}")
+
+print("x1 x2 OR")
+for x in x_train:
+    print(f"{x[0]:3} {x[1]:3} {predict(x, w_or):3}")
+print()
+
+# №7: Обучение NOT 
+print("=" * 50)
+print("ЗАДАНИЕ 7: Обучение нейрона для NOT")
+print("=" * 50)
+
+w_not = init_weights(num_weights=1)
+print(f"Стартовые веса: {w_not}")
+
+x_train_not = [[1], [0]]
+y_train_not = [0, 1]
+
+epoch(10, train, x_train_not, y_train_not, w_not, speed)
+print(f"Конечные веса: {w_not}")
+
+print("x NOT")
+for x in x_train_not:
+    print(f"{x[0]:3} {predict(x, w_not):3}")
+print()
+
+# №8: Обучение NAND 
+print("=" * 50)
+print("ЗАДАНИЕ 8: Обучение нейрона для NAND")
+print("=" * 50)
+
+w_nand = init_weights()
+print(f"Стартовые веса: {w_nand}")
+
+y_train_nand = [0, 1, 1, 1]
+
+epoch(10, train, x_train, y_train_nand, w_nand, speed)
+print(f"Конечные веса: {w_nand}")
+
+print("x1 x2 NAND")
+for x in x_train:
+    print(f"{x[0]:3} {x[1]:3} {predict(x, w_nand):3}")
+print()
+
+# № 9: Обучение NOR 
+print("=" * 50)
+print("ЗАДАНИЕ 9: Обучение нейрона для NOR")
+print("=" * 50)
+
+w_nor = init_weights()
+print(f"Стартовые веса: {w_nor}")
+
+y_train_nor = [0, 0, 0, 1]
+
+epoch(10, train, x_train, y_train_nor, w_nor, speed)
+print(f"Конечные веса: {w_nor}")
+
+print("x1 x2 NOR")
+for x in x_train:
+    print(f"{x[0]:3} {x[1]:3} {predict(x, w_nor):3}")
+print()
+
+# СВОДНАЯ ТАБЛИЦА 
+print("=" * 50)
+print("СВОДНАЯ ТАБЛИЦА ВСЕХ ЛОГИЧЕСКИХ ФУНКЦИЙ")
+print("=" * 50)
+print("x1 x2 | AND  OR  NOT1 NOT2| XOR NAND NOR")
+print("-" * 45)
+for x1, x2 in [[0,0], [0,1], [1,0], [1,1]]:
+    and_out = neuron_and.activate([x1, x2])
+    or_out = neuron_or.activate([x1, x2])
+    not1_out = neuron_not.activate([x1])
+    not2_out = neuron_not.activate([x2])
+    xor_out = xor_network.activate([x1, x2])
+    nand_out = predict([x1, x2], w_nand)
+    nor_out = predict([x1, x2], w_nor)
+    print(f"{x1:2} {x2:2} | {and_out:3} {or_out:3} {not1_out:4} {not2_out:4}| {xor_out:3} {nand_out:4} {nor_out:3}")
